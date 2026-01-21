@@ -9,12 +9,14 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch("/activities");
       const activities = await response.json();
+      console.log('Fetched activities:', activities);
 
       // Clear loading message
       activitiesList.innerHTML = "";
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
+          console.log('Participants for', name, details.participants);
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
 
@@ -25,7 +27,42 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <h5>Participants:</h5>
+            <ul class="participants-list" style="list-style-type:none; padding-left:0;"></ul>
+          </div>
         `;
+
+        // Add participants with delete icon
+        const participantsUl = activityCard.querySelector('.participants-list');
+        if (details.participants.length === 0) {
+          const li = document.createElement('li');
+          li.textContent = 'No participants yet.';
+          li.style.color = '#888';
+          participantsUl.appendChild(li);
+        } else {
+          details.participants.forEach((participant, idx) => {
+            const li = document.createElement('li');
+            li.style.display = 'flex';
+            li.style.alignItems = 'center';
+            li.style.justifyContent = 'space-between';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = participant;
+            li.appendChild(nameSpan);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '&#128465;'; // Trash can icon
+            deleteBtn.title = 'Unregister';
+            deleteBtn.onclick = async function() {
+              await unregisterParticipant(name, participant);
+            };
+            li.appendChild(deleteBtn);
+
+            participantsUl.appendChild(li);
+          });
+        }
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -80,6 +118,24 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error signing up:", error);
     }
   });
+
+  // Unregister participant function
+  async function unregisterParticipant(activityName, participantEmail) {
+    try {
+      const response = await fetch(`/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(participantEmail)}`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        fetchActivities();
+      } else {
+        const result = await response.json();
+        alert(result.detail || 'Failed to unregister participant.');
+      }
+    } catch (error) {
+      alert('Error unregistering participant.');
+      console.error(error);
+    }
+  }
 
   // Initialize app
   fetchActivities();
